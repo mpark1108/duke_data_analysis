@@ -2,5 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-.XPT
 *.html
+*.RData
+*.csv
+*.rds
+*.XPT
