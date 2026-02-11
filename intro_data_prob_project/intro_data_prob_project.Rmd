@@ -1,0 +1,121 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+```{r load-data}
+load("brfss2013.RData")
+dim(brfss2013)
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+The Behavioral Risk Factor Surveillance System (BRFSS) is a collaborative effort between 
+the CDC and all 50 states, District of Columbia, and other U.S. territories to gather data
+on individual health related issues through telephone survey. The goal of BRFSS is to gather
+data by state concerning preventative health practices and risk behaviors linked to chronic
+diseases, injuries, and preventable infectious diseases. Telephone surveys are done through
+landline and cellular line.
+
+For landline surveys, a random adult was chosen per household. For cellular telephone,
+individuals who have private residence or college housing were chosen. Both forms of survey
+deployments involved the non-institutionalized population. Optional questions were included
+beginning in 2013 involving childhood health for those 17 or younger.  
+\
+
+#### Scope of Inference: Generalizability and Causality  
+
+Only those who were non-institutionalized were able to take the survey,
+therefore the data reflects a more narrow population than otherwise. The population 
+that does not have access to landlines or cellphones are not represented. Finally, the
+491,775 surveyed may only reflect those that are willing and/or have the time to take
+the survey.
+
+BRFSS resembles a cross-sectional survey, therefore only inferences of
+correlation may be made, not causality. Because of the way the survey is deployed,
+there may exist recall bias, e.g. asking for health information regarding the past
+30 days. There may also exist proxy bias, as adults answer for children. Finally,
+self-reporting bias can exist as information cannot be verified.
+
+
+
+
+
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:** Are there differences in the severity of diabetes across ethnic groups?
+This is question of interest, because it may reveal groups that are at risk of advanced diabetes.
+Core variables: _race, diabete3, insulin.
+
+**Research quesion 2:** Are there accessibility differences in frequency of doctor visits across
+ethnic groups? This may reveal disparity in access to health care per ethnicity.
+Core variables: drvisits, _race
+
+**Research quesion 3:** Is there an association between the amount of time sleeping and mental health?
+Core variables: sleptim1, menthlth
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+```{r}
+diabetes2013 <- brfss2013 %>% filter(!is.na(X_race), 
+  diabete3 == "Yes", insulin %in% c("Yes", "No"))
+diabetes2013 %>% group_by(X_race) %>% summarize(prop_insulin = 
+  sum(insulin == "Yes") / n()) 
+
+```
+Summary table showing proportion of insulin taken grouped by ethnicity with diabetes.
+
+```{r}
+diabetes2013 %>%
+  filter(insulin %in% c("Yes", "No")) %>%
+  ggplot(aes(x = X_race, fill = insulin)) +
+  geom_bar(position = position_fill(reverse = TRUE)) +
+  labs(x = "Ethnicity", y = "Proportion", fill = "Insulin") +
+  coord_flip()
+```
+
+Proportion of insulin taken vs not taken grouped by ethnicity in a bar graph.
+
+
+**Research quesion 2:**
+
+```{r}
+
+```
+
+
+
+**Research quesion 3:**
+
+```{r}
+
+```
+
