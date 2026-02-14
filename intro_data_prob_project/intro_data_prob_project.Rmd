@@ -1,7 +1,10 @@
 ---
 title: "Exploring the BRFSS data"
-output: 
-  html_document: 
+author: "Michael Park"
+date: "2026 February 12"
+output:
+  pdf_document: default
+  html_document:
     fig_height: 4
     highlight: pygments
     theme: spacelab
@@ -20,9 +23,13 @@ library(dplyr)
 
 ```{r load-data}
 load("brfss2013.RData")
-dim(brfss2013)
 ```
 
+### Dimensions of the dataset
+```{r dimesions}
+dim(brfss2013)
+```
+There are 491,775 cases and 330 vectors.
 
 
 * * *
@@ -57,24 +64,25 @@ there may exist recall bias, e.g. asking for health information regarding the pa
 self-reporting bias can exist as information cannot be verified.
 
 
-
-
-
-
 * * *
 
 ## Part 2: Research questions
 
 **Research quesion 1:** Are there differences in the severity of diabetes across ethnic groups?
-This is question of interest, because it may reveal groups that are at risk of advanced diabetes.
-Core variables: _race, diabete3, insulin.
+Are there, also, differences between sex? This question is of interest, because it may reveal 
+groups that are at risk of advanced diabetes.
 
-**Research quesion 2:** Are there accessibility differences in frequency of doctor visits across
-ethnic groups? This may reveal disparity in access to health care per ethnicity.
-Core variables: drvisits, _race
+<!-- vectors: _race, diabete3, insulin. -->
 
-**Research quesion 3:** Is there an association between the amount of time sleeping and mental health?
-Core variables: sleptim1, menthlth
+**Research quesion 2:** Is there an association between the days reported of mental health
+not good and the number of hours slept? The question is of interest because if an association
+is found, further investigation into causality could improve treatments for sleep or mental health.
+<!-- vectors: sleeptim1, menthlth -->
+
+**Research quesion 3:** In 2013, is there disparity in the income bracket of $75,000 or more between 
+sex? This question is important to ask because it may reveal efficacy of equality policies at all 
+levels concerning the workplace.
+<!--vectors: X_state, sex, income2 -->
 
 
 * * *
@@ -85,29 +93,103 @@ Core variables: sleptim1, menthlth
 **Research quesion 1:**
 
 ```{r}
-diabetes2013 <- brfss2013 %>% filter(!is.na(X_race), 
-  diabete3 == "Yes", insulin %in% c("Yes", "No"))
-diabetes2013 %>% group_by(X_race) %>% summarize(prop_insulin = 
-  sum(insulin == "Yes") / n()) 
+d_prop_summary <- brfss2013 %>% 
+  filter(!is.na(X_race), diabete3 == "Yes", 
+  insulin %in% c("Yes", "No")) %>%
+  group_by(X_race) %>%
+  summarize(
+    n = n(), 
+    p_hat = mean(insulin == "Yes"), 
+    se = sqrt(p_hat * (1 - p_hat) / n),
+    lower = p_hat - 1.96 * se,
+    upper = p_hat + 1.96 * se
+  ) %>%
+  arrange(desc(p_hat))
+d_prop_summary
 
 ```
-Summary table showing proportion of insulin taken grouped by ethnicity with diabetes.
+The above summary table shows proportion of insulin takers with diabetes, in descending order,  grouped by ethnicity.
+\  
+ 
 
 ```{r}
-diabetes2013 %>%
-  filter(insulin %in% c("Yes", "No")) %>%
-  ggplot(aes(x = X_race, fill = insulin)) +
-  geom_bar(position = position_fill(reverse = TRUE)) +
-  labs(x = "Ethnicity", y = "Proportion", fill = "Insulin") +
-  coord_flip()
+ggplot(d_prop_summary, 
+       aes(x = p_hat, y = X_race)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(xmin = lower, xmax = upper),
+                width = 0.2) +
+  scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 28)) +
+  labs(
+    x = "Proportion taking insulin",
+    y = "Race/Ethnicity",
+  )
 ```
 
-Proportion of insulin taken vs not taken grouped by ethnicity in a bar graph.
+The above graph displays a point plot with 95% confidence intervals based on proportion of insulin takers grouped by ethnicity.  
+\
 
+```{r}
+d_prop_summary_sex <- brfss2013 %>% 
+  filter(!is.na(X_race), diabete3 == "Yes", 
+  insulin %in% c("Yes", "No")) %>%
+  group_by(X_race, sex) %>%
+  summarize(
+    n = n(), 
+    p_hat = mean(insulin == "Yes"), 
+    se = sqrt(p_hat * (1 - p_hat) / n),
+    lower = p_hat - 1.96 * se,
+    upper = p_hat + 1.96 * se
+  )
+d_prop_summary_sex
+```
+The above summary table shows porportion of insulin takers with diabetes grouped by ethnicity and sex.
+
+
+```{r}
+ggplot(d_prop_summary_sex, 
+       aes(y = X_race, x = p_hat, color = sex, group = sex)) +
+  geom_point(position = position_dodge(width = 0.6), 
+             size = 2) +
+  geom_errorbar(aes(xmin = lower, xmax = upper),
+                position = position_dodge(width = 0.6),
+                width = 0.2) +
+  scale_y_discrete(labels = function(x) stringr::str_wrap(x, width = 28)) +
+  labs(
+    y = "Race/Ethnicity",
+    x = "Proportion taking insulin",
+    color = "Sex"
+  )
+
+```
+
+The above graph displays proportion of insulin takers grouped by race and sex along with confidence intervals.
+\
 
 **Research quesion 2:**
 
 ```{r}
+mhealth_sleep <- brfss2013 %>%
+  filter(!is.na(menthlth),
+         !is.na(sleptim1),
+         menthlth <= 30,
+         sleptim1 > 0) %>%
+  group_by(menthlth) %>%
+  summarize(
+    mean_sleep = mean(sleptim1),
+    n = n(),
+  )
+print(mhealth_sleep, n = Inf)
+```
+
+
+
+```{r}
+
+ggplot(mhealth_sleep, aes(x = menthlth, y = mean_sleep)) +
+  geom_point() +
+  geom_line() +
+  geom_smooth(se = FALSE) +
+  labs(x = "Days mental health not good", y = "Mean sleep hours")
 
 ```
 
@@ -116,6 +198,27 @@ Proportion of insulin taken vs not taken grouped by ethnicity in a bar graph.
 **Research quesion 3:**
 
 ```{r}
-
+income_sex <- brfss2013 %>%
+  filter(!is.na(sex), 
+         !is.na(income2),
+        ) %>%
+  group_by(X_state, sex) %>%
+  summarize(phat = mean(income2 == "$75,000 or more"), .groups = "drop")
+print(income_sex, n = Inf)
+  
 ```
 
+The above summary table shows grouping by state and sex and the respective proportion that earns an income of $75,000 or more.
+
+```{r, fig.height = 10, fig.width = 8}
+ggplot(income_sex, 
+       aes(x = phat, y = reorder(X_state, phat), color = sex, group = sex)) +
+  geom_line(aes(group = X_state), color = "grey70") + # adds horizontal "track"
+  geom_point(position = position_dodge(width = 0.6),
+             size = 2) +
+labs(x = "Proportion of $75,000 or more income earners",
+     y = "State",
+     color = "Sex")
+```
+
+The above point plot shows grouping by state and sex with the proportion of $75,000 or greater earners arranged in descending order.
