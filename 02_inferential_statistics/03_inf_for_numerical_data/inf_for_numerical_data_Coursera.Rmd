@@ -75,6 +75,17 @@ str(nc)
 As you review the variable summaries, consider which variables are categorical and which 
 are numerical. For numerical variables, are there outliers? If you aren't sure or want to 
 take a closer look at the data, make a graph.
+```{r outliers}
+# quick look at outliers boxplot and values for numerical vectors only
+nc |>
+  dplyr::select(where(is.numeric)) |>
+  boxplot()
+
+nc |>
+  dplyr::select(where(is.numeric)) |>
+  purrr::map(boxplot.stats) |>
+  purrr::map("out")
+```
 
 ## Exploratory data analysis
 
@@ -111,6 +122,7 @@ false about the relationship between habit and weight?
 </ol>
 ```{r habit-weight-box}
 # type your code for the Question 3 here, and Knit
+boxplot(weight ~ habit, data = nc)
 
 ```
 
@@ -191,7 +203,8 @@ between 0 and 1. Also note that when doing a confidence interval arguments like
 </ol>
 ```{r habit-weight-ci}
 # type your code for the Question 5 here, and Knit
-
+inference(y = weight, x = habit, data = nc, statistic = "mean", type = "ci",  
+          method = "theoretical")
 ```
 
 By default the function reports an interval for ($\mu_{nonsmoker} - \mu_{smoker}$)
@@ -215,6 +228,12 @@ interval?
 </ol>
 ```{r weeks-ci-99}
 # type your code for Question 6 here, and Knit
+# By default the function reports an interval for (μnonsmoker−μsmoker). 
+# We can easily change this order by using the order argument:
+
+inference(y = weeks, data = nc, statistic = "mean", type = "ci", 
+          method = "theoretical", conf_level = 0.99)
+
 
 ```
 
@@ -223,6 +242,8 @@ interval?
 </div>
 ```{r weeks-ci-90}
 # type your code for the Exercise here, and Knit
+inference(y = weeks, data = nc, statistic = "mean", type = "ci", 
+          method = "theoretical", conf_level = 0.90)
 
 ```
 
@@ -231,6 +252,8 @@ interval?
 </div>
 ```{r gained-mature-ht}
 # type your code for the Exercise here, and Knit
+inference(y = gained, x = mature, data = nc, statistic = "mean", type = "ht", 
+          null = 0, alternative = "twosided", method = "theoretical")
 
 ```
 
@@ -238,6 +261,10 @@ interval?
 mothers. Use a method of your choice, and explain how your method works.
 ```{r cutoff-mature}
 # type your code for Question 7 here, and Knit
+nc |> 
+  dplyr::summarize(min_age = min(mage, na.rm = TRUE),
+                   max_age = max(mage, na.rm = TRUE),
+                   .by = mature)
 
 ```
 
@@ -253,11 +280,57 @@ and analyzing the data to answer this question is basically what you'll need to 
 your project as well.)
 </div>
 
-```{r pick-your-own}
-# type your code for the Exercise here, and Knit
+First, I want to look at the response: age (mage) and explanatory variable: white/nonwhite (whitemom).
 
+Do a quick boxplot comparison
+```{r boxplot-pick-my-own}
+boxplot(mage ~ whitemom, data = nc)
 ```
 
+The boxplot above suggests nonwhite mothers are giving birth at an earlier age than whites. This is suggestive by
+the lowered IQR and slightly lowered range. The box seems to show roughly equal variance between the two groups.
+A t-test can be performed to address the following:
+
+Null hypothesis: No difference between mean age of white and non-white mothers.
+
+Alternate hypothesis: Mean age for non-white mothers is lower than mean age for white mothers.
+
+A one sided t-test will be performed with an alpha level of 0.05.
+
+```{r pick-your-own}
+# type your code for the Exercise here, and Knit
+t.test(mage ~ whitemom, data = nc, alternative = 'less')
+```
+
+Based on the test, there is significant difference with a p-value of 1.215e-07
+with an alpha level of 0.05. Therefore the null hypothesis is rejected.
+
+The evidence suggests that non-white mothers give birth at a younger age compared to white women.
+
+Summary statistics:
+
+```{r summary-stat-my-own}
+nc |>
+   dplyr::filter(!is.na(whitemom), !is.na(mage)) |>
+   dplyr::summarise(
+       n = dplyr::n(),
+       min_age = min(mage),
+       q1_age = quantile(mage, 0.25),
+       median_age = median(mage),
+       mean_age = mean(mage),
+       q3_age = quantile(mage, 0.75),
+       max_age = max(mage),
+       sd_age = sd(mage),
+       .by = whitemom
+   )
+```
+
+Using inference() wrapper tool:
+
+``` {r inference-tool}
+inference(y = mage, x = whitemom, data = nc, statistic = "mean", type = "ht", 
+          null = 0, alternative = "less", method = "theoretical")
+```
 
 <div id="license">
 This is a product of OpenIntro that is released under a [Creative Commons 
