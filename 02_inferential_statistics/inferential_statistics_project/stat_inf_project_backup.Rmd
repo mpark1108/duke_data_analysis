@@ -1,0 +1,171 @@
+---
+title: "Statistical inference with the GSS data"
+author: "Michael Park"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+The data used in this project come from the General Social Survey (GSS) Cumulative File, 1972–2012 Coursera Extract. The GSS collects survey data from U.S. adults on demographic characteristics, attitudes, and behaviors. For this analysis, I use `sex`, respondent sex, and `fear`, whether the respondent reported being afraid to walk alone at night in their neighborhood.
+
+I restrict the analysis to the 2008–2012 GSS survey waves to avoid pooling respondents across the entire 1972–2012 cumulative file. This is important because perceptions of safety may have changed over time.
+
+Because the GSS uses random sampling, the results may be generalized to the U.S. adult population represented by the 2008–2012 GSS survey waves, with caution for nonresponse and missing data. However, this is observational survey data, so the analysis can describe an association between sex and reported fear but cannot show that sex causes differences in fear.
+
+
+
+* * *
+
+## Part 2: Research question
+
+Among GSS respondents in the 2008–2012 survey waves, is the proportion who report being afraid to walk alone at night different between female and male respondents? 
+
+This question is interesting because fear of walking alone at night is related to perceived personal safety and quality of life. Comparing female and male respondents can show whether reported fear differs by sex in a recent GSS survey window. This matters because differences in perceived safety may reflect broader social experiences, gender norms, or differences in exposure to unsafe environments.
+
+Limitations: \
+Confounding: neighborhood safety, age, income, region, urban/rural context \
+Response bias: people may answer inaccurately \
+Social desirability bias: people may underreport fear because of social norms \
+Item nonresponse bias: people who skip the fear question may differ from those who answer \
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+To explore the relationship between respondent sex and fear of walking alone at night, I created a two-way summary table and calculated the proportion of respondents within each sex who answered “Yes” or “No.” I also used a proportional bar chart to compare the distribution of responses across female and male respondents.
+
+```{r inspect}
+
+dim(gss)
+```
+The full GSS Coursera extract contains 57,061 observations and 114 variables. For this analysis, I do not use the full dataset. I restrict the data to respondents in the 2008–2012 survey waves with non-missing values for `fear` and `sex`.
+
+```{r EDA}
+fear_sex_recent <- gss %>%
+  filter(
+    year >= 2008,
+    year <= 2012,
+    !is.na(fear),
+    !is.na(sex)
+  )
+
+fear_sex_recent <- fear_sex_recent %>%
+  mutate(sex = factor(sex, levels = c("Female", "Male")))
+
+fear_sex_recent %>%
+  count(year)
+```
+
+The table below summarizes the number and proportion of female and male respondents who reported being afraid to walk alone at night. The proportion answering “Yes” is the main summary statistic because the research question compares the proportion reporting fear between female and male respondents.
+
+```{r summary}
+fear_summary <- fear_sex_recent %>%
+  group_by(sex) %>%
+  summarise(
+    n = n(),
+    fear_yes = sum(fear == "Yes"),
+    fear_no = sum(fear == "No"),
+    prop_fear_yes = mean(fear == "Yes"),
+    .groups = "drop"
+  )
+
+fear_summary
+```
+
+The proportional bar chart below visualizes the distribution of fear responses within each sex group.
+```{r}
+ggplot(fear_sex_recent, aes(x = sex, fill = fear)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Fear of Walking Alone at Night by Sex, GSS 2008-2012",
+    x = "Respondent sex",
+    y = "Proportion",
+    fill = "Afraid?"
+  )
+```
+
+The proportional bar chart shows the same pattern as the summary table. A larger share of female respondents answered “Yes” to being afraid to walk alone at night, while a larger share of male respondents answered “No.” This visual pattern suggests an association between respondent sex and reported fear of walking alone at night in the 2008–2012 GSS survey waves.
+
+* * *
+
+## Part 4: Inference
+
+
+```{r}
+prop.test(
+  x = fear_summary$fear_yes,
+  n = fear_summary$n,
+  alternative = "two.sided",
+  correct = FALSE
+)
+```
+
+
+### Parameter
+
+Let $p_F$ be the true proportion of female respondents who report being afraid to walk alone at night in their neighborhood. Let $p_M$ be the true proportion of male respondents who would report being afraid to walk alone at night in their neigborhood. The parameter of interest is $p_F - p_M$.
+
+### Hypothesis
+
+$$
+H_0: p_F - p_M = 0
+$$
+
+$$
+H_A: p_F - p_M \ne 0
+$$
+
+The null hypothesis is that the proportion of women who report fear of walking alone at night is equal to the proportion of men who report fear. The alternative hypothesis is that the two population proportions are different.
+
+I will conduct this hypothesis test using a significance level of $\alpha = 0.05$.
+
+### Conditions
+
+The observations should be independent because the GSS samples different respondents rather than repeatedly measuring the same people. The sample size is also far less than 10% of the U.S. adult population. The success-failure condition is met because both female and male respondents have more than 10 “Yes” and more than 10 “No” responses. Therefore, a two-proportion test is reasonable for this analysis.
+
+### Method
+
+Because both variables are categorical and each has two levels, I used a two-proportion hypothesis test to test whether the proportion answering "Yes" differs by sex. I also calculated a confidence interval for the differenc ein population proportions, $p_F$ $-$ $p_M$.
+
+### Results
+
+In the 2008–2012 GSS survey waves, approximately 45.0% of female respondents reported being afraid to walk alone at night, compared with approximately 19.7% of male respondents. The observed difference is about 25.3 percentage points.
+
+The two-proportion test produced a p-value less than 2.2e-16. Since this p-value is less than $\alpha = 0.05$, I reject the null hypothesis. The data provide strong evidence that the proportion of respondents who report being afraid to walk alone at night differs between female and male respondents in the 2008–2012 GSS survey waves.
+
+The 95% confidence interval for $p_F - p_M$ is approximately $(0.225, 0.281)$. This means we are 95% confident that the true proportion of female respondents who report being afraid to walk alone at night is between 22.5 and 28.1 percentage points higher than the true proportion of male respondents in the 2008–2012 GSS survey waves.
+
+Because the confidence interval does not include 0, it agrees with the hypothesis test.
+
+
+### Conclusion
+
+Since the p-value is less than $\alpha = 0.05$, I reject the null hypothesis. The data provides strong evidence that the proportion of female respondents who report being afraid to walk alone at night differs from the proportion of male respondents who report the same.
+
+A possible limitation is confounding by neighborhood safety. Respondents who live in more dangerous or less safe neighborhoods may be more likely to report being afraid to walk alone at night. Since this analysis only compares fear by sex and does not control for neighborhood safety, income, age, region, or other related factors, the observed association between sex and fear should not be interpreted as causal. Because fear is self-reported, responses may also be affected by response bias or social desirability bias. Some respondents may be more or less willing to report being afraid.

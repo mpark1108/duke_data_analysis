@@ -1,0 +1,147 @@
+---
+title: "Statistical inference with the GSS data"
+author: "Michael Park"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+* * *
+
+## Part 1: Data
+
+The data come from the General Social Survey (GSS) Cumulative File, 1972–2012 Coursera Extract. The GSS collects survey data from U.S. adults on demographic characteristics, attitudes, and behaviors. This Coursera extract includes selected variables from the full GSS dataset, with missing values recoded as `NA`.
+
+Because the GSS uses random sampling, results from this analysis may be generalized to the U.S. adult population represented by the survey years in this dataset, with caution for possible nonresponse and missing-data bias. However, the data are observational rather than experimental. Respondents were not randomly assigned to survey periods, so this analysis can describe differences in mean years of schooling across periods but cannot establish that time period caused differences in education.
+
+* * *
+
+## Part 2: Research question
+ 
+Do mean years of schooling completed differ across GSS survey periods in the 1972–2012 GSS data? This question is interesting because educational attainment is an important social and economic indicator. Examining mean years of schooling across GSS survey periods can show whether average educational attainment changed over the time covered by the dataset.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+educ_period <- gss %>%
+  filter(!is.na(year), !is.na(educ)) %>%
+  mutate(
+    period = case_when(
+      year >= 1972 & year <= 1979 ~ "1972-1979",
+      year >= 1980 & year <= 1989 ~ "1980-1989",
+      year >= 1990 & year <= 1999 ~ "1990-1999",
+      year >= 2000 & year <= 2009 ~ "2000-2009",
+      year >= 2010 & year <= 2012 ~ "2010-2012"
+    ),
+    period = factor(
+      period,
+      levels = c("1972-1979", "1980-1989", "1990-1999", "2000-2009", "2010-2012")
+    )
+  )
+
+educ_period_summary <- educ_period %>%
+  group_by(period) %>%
+  summarise(
+    n = n(),
+    mean_educ = mean(educ),
+    sd_educ = sd(educ),
+    median_educ = median(educ),
+    IQR_educ = IQR(educ),
+    .groups = "drop"
+  )
+
+educ_period_summary
+```
+
+I created a new variable, `period`, to group GSS survey years into five chronological survey periods: 1972–1979, 1980–1989, 1990–1999, 2000–2009, and 2010–2012. I grouped individual survey years into five chronological survey periods to make the comparison easier to interpret and to avoid a very large number of pairwise comparisons across individual years.
+
+The summary table shows that the mean years of schooling completed increased across the survey periods, from 11.7 years in 1972–1979 to 13.5 years in 2010–2012. The median also increased from 12 years in the first two periods to 13 years starting in 1990–1999. The standard deviations are fairly similar across periods, ranging from about 2.98 to 3.27 years, which suggests that the spread of education values is broadly comparable across groups.
+
+```{r}
+ggplot(educ_period_summary, aes(x = period, y = mean_educ)) +
+  geom_col() +
+  labs(
+    title = "Mean Years of Schooling Completed by GSS Survey Period",
+    x = "GSS survey period",
+    y = "Mean years of schooling completed"
+  )
+```
+
+The bar graph displays the mean years of schooling completed for each GSS survey period. The mean increases across the periods. This suggests that average educational attainment among GSS respondents was higher in later survey periods than in earlier survey periods.
+
+
+```{r}
+ggplot(educ_period, aes(x = period, y = educ)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Years of Schooling Completed by GSS Survey Period",
+    x = "GSS survey period",
+    y = "Years of schooling completed"
+  )
+```
+
+The boxplot shows that years of schooling completed generally shifted upward across the survey periods. The median increased from about 12 years in the earlier periods to about 13 years in later periods. The distributions have some low and high outlying values, but the overall spread appears fairly similar across periods.
+
+* * *
+
+## Part 4: Inference
+
+The research question asks whether mean years of schooling completed differ across GSS survey periods. Since the response variable, `educ`, is numerical and the explanatory variable, `period`, has five groups, I use a one-way ANOVA.
+
+Let $\mu_1$, $\mu_2$, $\mu_3$, $\mu_4$, and $\mu_5$ represent the true mean years of schooling completed for the five GSS survey periods.
+
+$H_0$: Mean years of schooling completed are the same across all five GSS survey periods.
+
+$H_A$: At least one GSS survey period has a different mean years of schooling completed.
+
+I will use a significance level of $\alpha = 0.05$.
+
+### Conditions
+ANOVA is appropriate here because I am comparing a numerical variable, years of schooling completed, across several groups, the GSS survey periods. The observations should be independent because the GSS surveys different respondents rather than following the same people over time. Each survey period has a large number of respondents with non-missing education data, so the large sample sizes help make ANOVA reasonable even though years of schooling is not perfectly normally distributed. The spreads across periods also appear similar enough to proceed with ANOVA.
+
+```{r}
+educ_period_anova <- aov(educ ~ period, data = educ_period)
+
+summary(educ_period_anova)
+```
+
+The ANOVA produced a p-value of less than 2e-16. Since this p-value is less than $\alpha = 0.05$, I reject the null hypothesis. This means the data provide strong evidence that at least one GSS survey period has a different mean years of schooling completed.
+
+The ANOVA tells me whether at least one period mean differs, but it does not tell me which periods differ. To compare specific periods, I used pairwise t-tests with a Bonferroni correction. The Bonferroni correction adjusts for the fact that multiple pairwise comparisons are being made.
+```{r}
+pairwise.t.test(
+  x = educ_period$educ,
+  g = educ_period$period,
+  p.adjust.method = "bonferroni"
+)
+```
+
+The Bonferroni-adjusted pairwise tests show that nearly all survey periods differ significantly from one another in mean years of schooling completed. The only comparison that is not statistically significant is 2000–2009 versus 2010–2012, with an adjusted p-value of 0.78. This suggests that average years of schooling increased across earlier survey periods, but the mean was similar in the two most recent periods.
+
+This matches the exploratory summaries: mean years of schooling increased from 11.7 in 1972–1979 to 12.3 in 1980–1989, 13.1 in 1990–1999, 13.4 in 2000–2009, and 13.5 in 2010–2012. The difference between 2000–2009 and 2010–2012 was small, which is consistent with the non-significant Bonferroni-adjusted test for that pair.
+
+Overall, the results suggest that average years of schooling completed increased across the GSS survey periods, especially between the earlier periods and later periods. The increase appears to level off somewhat between 2000–2009 and 2010–2012, since that pairwise comparison was not statistically significant. Since this is observational survey data, this conclusion should be interpreted as a difference across periods rather than evidence that time period caused changes in education.

@@ -1,0 +1,124 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+The data come from the General Social Survey (GSS) Cumulative File, 1972–2012 Coursera Extract. The GSS collects survey data from U.S. adults on demographic characteristics, attitudes, and behaviors. This Coursera extract includes selected variables from the full GSS dataset, with missing values recoded as `NA`.
+
+Because the GSS uses random sampling, results from this analysis may be generalized to the U.S. adult population represented by the 2008–2012 GSS survey waves, specifically among respondents who had children and answered the age-at-first-birth question. Because this is observational survey data, the analysis can identify a difference in reported age at first child birth by sex, but it cannot establish that sex causes differences in age at first child birth.
+
+* * *
+
+## Part 2: Research question
+
+Among GSS respondents in the 2008–2012 survey waves who had children, is mean age at first child birth different between female and male respondents?
+
+This question is interesting because age at first child birth is related to family formation, reproductive timing, education, work, and public health. Comparing female and male respondents within a recent survey window avoids mixing together respondents from very different historical periods.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+```{r}
+birth_sex_recent <- gss %>%
+  filter(
+    year >= 2007,
+    year <= 2012,
+    !is.na(agekdbrn),
+    !is.na(sex)
+  ) %>%
+  mutate(
+    sex = factor(as.character(sex), levels = c("Female", "Male"))
+  )
+
+birth_sex_recent %>%
+  count(year)
+
+```
+Although I filtered for 2007–2012, the non-missing observations come from the 2008, 2010, and 2012 survey waves. These are the recent GSS waves included in this analysis.
+
+```{r}
+birth_sex_summary <- birth_sex_recent %>%
+  group_by(sex) %>%
+  summarise(
+    n = n(),
+    mean_age_first_birth = mean(agekdbrn),
+    sd_age_first_birth = sd(agekdbrn),
+    median_age_first_birth = median(agekdbrn),
+    IQR_age_first_birth = IQR(agekdbrn),
+    .groups = "drop"
+  )
+
+birth_sex_summary
+```
+
+The summary table compares age at first child birth between female and male respondents in the 2008, 2010, and 2012 GSS survey waves. Female respondents had a mean age at first child birth of about 22.9 years, while male respondents had a mean of about 25.4 years. The medians show the same pattern: 22 years for female respondents and 25 years for male respondents. This suggests that, in this sample, male respondents tended to report being older at the time of their first child’s birth than female respondents.
+
+```{r}
+ggplot(birth_sex_recent, aes(x = sex, y = agekdbrn)) +
+  geom_boxplot() +
+  labs(
+    title = "Age at First Child Birth by Sex, GSS 2008-2012",
+    x = "Respondent sex",
+    y = "Age at first child birth"
+  )
+```
+
+The boxplot shows the distribution of age at first child birth for female and male respondents. The male distribution is shifted upward compared with the female distribution, which matches the summary statistics. Both groups have some higher-age outliers, but the overall pattern suggests that male respondents tended to be older than female respondents at first child birth.
+
+* * *
+
+## Part 4: Inference
+
+The research question asks whether mean age at first child birth differs between female and male respondents. Since the response variable, `agekdbrn`, is numerical and the explanatory variable, `sex`, has two groups, I use a two-sample t-test. I use Welch’s two-sample t-test, which does not require the two groups to have equal standard deviations.
+
+Let $\mu_F$ be the true mean age at first child birth for female respondents in the 2008–2012 GSS survey waves who had children. Let $\mu_M$ be the true mean age at first child birth for male respondents in the same group. The parameter of interest is $\mu_F - \mu_M$.
+
+$H_0$: $\mu_F - \mu_M = 0$
+
+$H_A$: $\mu_F - \mu_M \ne 0$
+
+I will use a significance level of $\alpha = 0.05$.
+
+Conditions: The observations should be independent because the GSS surveys different respondents rather than following the same people over time. The two groups, female and male respondents, are independent of each other. The sample sizes in both groups are large, so the two-sample t-test should be reasonable even if age at first child birth is not perfectly normally distributed. The boxplot was used to check the distributions and look for extreme outliers.
+
+```{r}
+birth_ttest <- t.test(
+  agekdbrn ~ sex,
+  data = birth_sex_recent,
+  alternative = "two.sided",
+  conf.level = 0.95
+)
+
+birth_ttest
+```
+
+The Welch two-sample t-test produced a p-value less than 2.2e-16. Since this p-value is less than $\alpha = 0.05$, I reject the null hypothesis. The data provide strong evidence that mean age at first child birth differs between female and male respondents in the 2008–2012 GSS survey waves.
+
+The 95% confidence interval for $\mu_F - \mu_M$ is (-2.87, -2.18). This means we are 95% confident that the true mean age at first child birth for female respondents is between 2.18 and 2.87 years lower than the true mean for male respondents. Since the confidence interval does not include 0, it agrees with the hypothesis test.
